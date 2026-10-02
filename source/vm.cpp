@@ -1519,6 +1519,11 @@ void Vm::deserializeLuaState(const char* src, size_t len) {
 
 	int status = lua_pcall(_luaState, 1, 0, 0);
 	lua_gc(_luaState, LUA_GCRESTART, 0);
+	// GCRESTART zeroes the GC's debt, so everything the restore allocated -
+	// a whole Lua heap - would never be paid for. A frontend that rewinds
+	// restores every frame: the old heaps pile up as garbage the GC thinks
+	// it does not owe. Collect it now while it is all fresh garbage.
+	lua_gc(_luaState, LUA_GCCOLLECT, 0);
 	if (status != 0) {
 		std::string e = lua_tostring(_luaState, -1);
 		lua_pop(_luaState, 1);

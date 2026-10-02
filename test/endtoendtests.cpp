@@ -330,6 +330,25 @@ TEST_CASE("Loading and running carts") {
 
             CHECK(vm->vm_peek(0x4300) == (uint8_t)(saved + 1));
         }
+        SUBCASE("restoring every frame does not pile up garbage"){
+            // rewind restores once a frame; each restore builds a whole
+            // heap (~7 MB here), and the GC must still be made to pay for
+            // it. stat(0) is a fix16: keep the total under 32 MB.
+            vm->deserializeLuaState(state.data(), len);
+            vm->Step();
+            vm->ExecuteLua("poke2(0x4400, stat(0)\\1)", "");
+            int once = vm->vm_peek2(0x4400);
+            for (int i = 0; i < 3; i++) {
+                vm->deserializeLuaState(state.data(), len);
+                vm->Step();
+            }
+            vm->ExecuteLua("poke2(0x4400, stat(0)\\1)", "");
+            int after = vm->vm_peek2(0x4400);
+
+            INFO("lua heap KB after one restore ", once, ", after four ", after);
+            CHECK(once > 0);
+            CHECK(after < once + once / 2);
+        }
 
         vm->CloseCart();
     }
