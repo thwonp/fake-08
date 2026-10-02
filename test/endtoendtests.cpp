@@ -292,6 +292,33 @@ TEST_CASE("Loading and running carts") {
 
         vm->CloseCart();
     }
+    SUBCASE("Save state round trip"){
+        vm->LoadCart("savestatetest.p8", false);
+        vm->vm_run();
+        for (int i = 0; i < 30; i++) {
+            vm->Step();
+        }
+        uint8_t saved = vm->vm_peek(0x4300);
+        std::vector<char> state(1024 * 1024);
+        size_t len = vm->serializeLuaState(state.data());
+
+        SUBCASE("lua state serializes"){
+            CHECK(len > 0);
+        }
+        SUBCASE("restoring brings back the lua counter"){
+            for (int i = 0; i < 30; i++) {
+                vm->Step();
+            }
+            vm->deserializeLuaState(state.data(), len);
+            // the cart runs at 30fps: _update (and its poke) every other step
+            vm->Step();
+            vm->Step();
+
+            CHECK(vm->vm_peek(0x4300) == (uint8_t)(saved + 1));
+        }
+
+        vm->CloseCart();
+    }
     SUBCASE("tonum test cart"){
         vm->LoadCart("tonumtest2.p8", false);
         vm->vm_run();
