@@ -316,6 +316,20 @@ TEST_CASE("Loading and running carts") {
 
             CHECK(vm->vm_peek(0x4300) == (uint8_t)(saved + 1));
         }
+        SUBCASE("restoring before the first frame, after another cart ran"){
+            // a frontend restores right after loading, before the first
+            // Step; the previous cart's _update60 must not take over
+            vm->LoadCart("update60test.p8", false);
+            vm->vm_run();
+            vm->Step();
+            vm->LoadCart("savestatetest.p8", false);
+            vm->vm_run();
+            vm->deserializeLuaState(state.data(), len);
+            vm->Step();
+            vm->Step();
+
+            CHECK(vm->vm_peek(0x4300) == (uint8_t)(saved + 1));
+        }
 
         vm->CloseCart();
     }
